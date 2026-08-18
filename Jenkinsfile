@@ -1,11 +1,11 @@
 String targetRepositoryUrl =
-    params.DIR1_REPOSITORY_URL?.toString()?.trim() ?: 'https://gitlabX'
+    params.DIR1_REPOSITORY_URL?.toString()?.trim() ?: 'https://github.com/Crustacean/dashboardMain.git'
 String targetBranch = params.DIR1_BRANCH?.toString()?.trim() ?: 'main'
 String targetCredentialsId =
-    params.DIR1_CREDENTIALS_ID?.toString()?.trim() ?: ''
+    params.DIR1_CREDENTIALS_ID?.toString()?.trim() ?: 'pushToGit'
 
 if (!targetRepositoryUrl) {
-  error 'DIR1_REPOSITORY_URL must identify the repository containing Jenkinsfile3.'
+  error 'DIR1_REPOSITORY_URL must identify the repository containing Jenkinsfile.'
 }
 
 node {
@@ -55,12 +55,12 @@ node {
 
   stage('Execute dir1 Pipeline') {
     dir('dir1') {
-      if (!fileExists('examples/Jenkinsfile3')) {
-        error 'Target pipeline was not found: dir1/examples/Jenkinsfile3'
+      if (!fileExists('Jenkinsfile')) {
+        error 'Target pipeline was not found: dir1/Jenkinsfile'
       }
       env.OCTANE_PIPELINE_SOURCE_DIR = pwd()
       echo "Executing target Pipeline from ${env.OCTANE_PIPELINE_SOURCE_DIR}."
-      load 'examples/Jenkinsfile3'
+      load 'Jenkinsfile'
     }
   }
 }
