@@ -3,6 +3,7 @@ String targetRepositoryUrl =
 String targetBranch = params.DIR1_BRANCH?.toString()?.trim() ?: 'main'
 String targetCredentialsId =
     params.DIR1_CREDENTIALS_ID?.toString()?.trim() ?: 'pushToGit'
+String transportedConfigurationJson = ''
 
 if (!targetRepositoryUrl) {
   error 'DIR1_REPOSITORY_URL must identify the repository containing Jenkinsfile.'
@@ -50,6 +51,24 @@ node {
     if (!(copiedConfiguration instanceof Map)) {
       error "Copied configuration must contain a top-level YAML map: ${targetConfiguration}"
     }
+    Map configuration = copiedConfiguration as Map
+    List<String> configurationKeys =
+        configuration.keySet().collect { Object key -> key.toString().trim() }.sort()
+    List<String> invalidKeys =
+        configurationKeys.findAll { String key -> !(key ==~ /[A-Z][A-Z0-9_]*/) }
+    if (!invalidKeys.isEmpty()) {
+      error "Configuration keys must use upper snake case: ${invalidKeys.join(', ')}"
+    }
+    List<String> nonScalarKeys =
+        configurationKeys.findAll { String key ->
+          def value = configuration.get(key)
+          return value instanceof Map || value instanceof Collection
+        }
+    if (!nonScalarKeys.isEmpty()) {
+      error "Configuration values must be scalar: ${nonScalarKeys.join(', ')}"
+    }
+
+    transportedConfigurationJson = writeJSON(json: configuration, returnText: true)
     echo "Copied and validated ${sourceConfiguration} as ${targetConfiguration}."
   }
 
@@ -58,9 +77,15 @@ node {
       if (!fileExists('Jenkinsfile')) {
         error 'Target pipeline was not found: dir1/Jenkinsfile'
       }
-      env.OCTANE_PIPELINE_SOURCE_DIR = pwd()
-      echo "Executing target Pipeline from ${env.OCTANE_PIPELINE_SOURCE_DIR}."
-      load 'Jenkinsfile'
+      String pipelineSourceDirectory = pwd()
+      List<String> pipelineEnvironment = [
+        "OCTANE_BOOTSTRAP_CONFIGURATION_JSON=${transportedConfigurationJson}",
+        "OCTANE_PIPELINE_SOURCE_DIR=${pipelineSourceDirectory}"
+      ]
+      echo "Executing target Pipeline from ${pipelineSourceDirectory}."
+      withEnv(pipelineEnvironment) {
+        load 'Jenkinsfile'
+      }
     }
   }
 }
